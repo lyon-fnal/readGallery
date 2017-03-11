@@ -1,11 +1,19 @@
 Package: readGallery
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Read Gallery Data Into R
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Authors@R: person("Adam", "Lyon", email="lyon@fna.gov", role=c("aut", "cre")) 
+Description: Use Gallery to read in data stored by the art framework into an R session. 
+License: Fermi Tools License
 Encoding: UTF-8
 LazyData: true
+SystemRequirements: This package requires that R is running in an environment with 
+                    gallery and the accompanying python
+Imports:
+  reticulate,
+  stringr,
+  dplyr
+RoxygenNote: 6.0.1
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

@@ -1,0 +1,100 @@
+---
+title: "Read Gallery"
+author: "Adam Lyon"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Read Gallery}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(readGallery)
+```
+
+Locate some data files.
+
+```{r}
+system('ifdh ls /pnfs/GM2/scratch/users/lyon/arr_20170307/*/*.root | grep .root | grep _10k', intern=T) %>% 
+  xrootify() -> myFiles
+myFiles
+```
+
+```{r}
+myOneFile <- myFiles[1]
+myOneFile
+```
+
+Declare art data product usage
+```{r}
+useDataProduct('std::vector<gm2truth::GhostDetectorArtRecord>')
+```
+
+Make the input tags
+```{r}
+gh_cyl_tag <- artInputTag('artg4:GhostCylinderDetector')
+gh_nwd_tag <- artInputTag('artg4:GhostNearWorldDetector')
+```
+
+Make the reader Class (see http://stackoverflow.com/questions/29257985/r-markdown-how-do-i-show-file-contents)
+```{r comment=''}
+cat(readLines(system.file('python', 'sampleReaderClass.py', package="readGallery")), sep="\n")
+
+```
+```{r}
+createReaderClass_from_file(system.file('python', 'sampleReaderClass.py',
+                                        package="readGallery"))$GhostDetectorArtRecordReader -> GHReader
+```
+
+Make the reader objects
+```{r}
+ghCReader <- GHReader(gh_cyl_tag)
+```
+
+```{r}
+getGalleryData(myOneFile, ghCReader)
+```
+
+```{r}
+ghcdf <- galleryReader_df(ghCReader)
+ghcdf
+```
+Let's try two readers
+
+```{r}
+ghNReader <- GHReader(gh_nwd_tag)
+```
+```{r}
+getGalleryData(myOneFile, c(ghCReader, ghNReader))
+```
+
+```{r}
+ghndf <- galleryReader_df(ghNReader)
+ghndf
+```
+
+Let's try all the data!
+```{r}
+getGalleryData(myFiles, c(ghCReader, ghNReader) )
+```
+```{r}
+ghcdf <- galleryReader_df(ghCReader)
+ghcdf
+```
+
+```{r}
+ghndf <- galleryReader_df(ghNReader)
+ghndf
+```
+```{r}
+ghcdf %>% distinct(fileEntry)
+```
+```{r}
+ghcdf %>% group_by(fileEntry) %>% tally()
+```
+```{r}
+ghndf %>% group_by(fileEntry) %>% tally()
+```
+
