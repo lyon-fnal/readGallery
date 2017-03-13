@@ -4,14 +4,36 @@
 \alias{galleryReader_df}
 \title{Extract the data from a reader as a data frame}
 \usage{
-galleryReader_df(reader)
+galleryReader_df(reader, values, colnames)
 }
 \arguments{
-\item{reader}{THe reader from which to extract the data frame}
+\item{reader}{The reader from which to extract the data frame. Unless overridden (see parameters below),
+reader$values() and reader$colnames() will be called to get that data.}
+
+\item{values}{The values (in the form of a python list of rows) to convert to a data frame. If not specified, then
+\code{reader$values()} will be used.}
+
+\item{colnames}{The column names that correspond to the values. These must be in the same order as the elements
+in a row. If not specified, then \code{reader$colnames()} will be used.}
 }
 \value{
 A data frame
 }
 \description{
-Extract the data from a reader as a data frame
+The value data in the reader is a list of rows. This function will convert that into an R data frame. Typically,
+you simply pass the python reader object to this function and it will call reader$values() and reader$colnames()
+to get that information. If you have a complicated reader (perhaps it holds more than one value list), then you may
+need to use other methods from your reader object and not the defaults.
+You can specify those methods with the \code{values} and \code{colnames} parameters respectively. If you do
+not specify the \code{reader} object, then you must provide those two other parameters.
+}
+\examples{
+\dontrun{
+myReader \%>\% galleryReader_df
+
+galleryReader_df(myReader, colnames=theColumnNames)
+
+galleryReader_df(values=myReader$hitValues(), colnames=myReader$hitColNames())
+galleryReader_df(values=myReader$trackValues(), colnames=myReader$trackColNames())
+}
 }

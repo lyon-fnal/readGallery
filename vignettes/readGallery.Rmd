@@ -1,6 +1,5 @@
 ---
 title: "Read Gallery"
-author: "Adam Lyon"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -9,12 +8,50 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(collapse = T, comment = "#>")
+options(tibble.print_min = 4L, tibble.print_max = 4L)
 library(dplyr)
 library(readGallery)
+library(readr)
+library(ggplot2)
 ```
 
-Locate some data files.
+## Introduction
+
+This `readGallery` package allows you to read *art* data files with the *gallery* library (see http://art.fnal.gov). 
+
+### System requirements
+
+The system requirements are as follows:
+
+* You need a working gallery environment including the accompanying Root and Python packages. Be sure this environment is set up and active when you start *R* or *RStudio*. 
+* If you are getting data from Fermilab dCache, you will need the appropriate proxy
+* *R* and *RStudio* will pick up `$PATH` and `$LD_LIBRARY_PATH` but not other necessary environment variables. You need to write an `~/.REnviron` file set the variables within *R*. You can write this file from the bash command line (do this before starting *R* or *RStudio*) with,
+
+```bash
+$ env | egrep '(_INC|_LIB=|_DIR=|^MRB=|^PYTHON)' > ~/.Renviron
+```
+
+* You also need the `reticulate` *R* package. See https://github.com/rstudio/reticulate for information and installation instructions.
+
+### Workflow
+
+The basic workflow you need to follow is:
+
+1. Load the `readGallery` library.
+2. Locate your data files and put the paths in a vector. If you are using `XRootD`, then to get the appropriate URI(s) you should look-up the file paths with `ifdh ls` and then run them through `readGallery::xrootify`. 
+3. Declare use of an *art* data product with `readGallery::useDataProduct`. The argument is a string with the C++ class name including namespace if necessary. Be sure to wrap in `std::vector< >` if necessary.
+4. Create the *art* input tags you need with `readGallery::artInputTag`. You can determine the input tags of objects in the data file with the *art* binary `product_sizes_dumper`.
+5. Write a python class to serve as the *reader*. See below. 
+6. Run `readGallery::getGalleryData` to process the files.
+7. Run `readGallery::galleryReader_df` on the reader object(s) to extract the collected data as an R data frame.
+
+That all looks like a lot, but it's pretty easy. Let's try it!
+
+## Locate  data files
+
+I happen to have some data files in Fermilab dCache (note that you'll need the proper environment and proxy established).
 
 ```{r}
 system('ifdh ls /pnfs/GM2/scratch/users/lyon/arr_20170307/*/*.root | grep .root | grep _10k', intern=T) %>% 
@@ -22,30 +59,82 @@ system('ifdh ls /pnfs/GM2/scratch/users/lyon/arr_20170307/*/*.root | grep .root 
 myFiles
 ```
 
+Let's do one file for testing
 ```{r}
 myOneFile <- myFiles[1]
 myOneFile
 ```
 
-Declare art data product usage
+## Declare use of a data product
+
+We are going to read the `GhostDetectorArtRecord` objects. We need to declare use of this object.
+
 ```{r}
 useDataProduct('std::vector<gm2truth::GhostDetectorArtRecord>')
 ```
 
-Make the input tags
+We would do the same for other objects too if needed.
+
+## Create input tags
+
+There are two instances of `GhostDetectorArtRecord` objects in the file. We'll load both (eventually). Here are their input tags.  
 ```{r}
 gh_cyl_tag <- artInputTag('artg4:GhostCylinderDetector')
 gh_nwd_tag <- artInputTag('artg4:GhostNearWorldDetector')
 ```
 
-Make the reader Class (see http://stackoverflow.com/questions/29257985/r-markdown-how-do-i-show-file-contents)
-```{r comment=''}
-cat(readLines(system.file('python', 'sampleReaderClass.py', package="readGallery")), sep="\n")
+## Write the reader class
 
+You write a reader class in **Python**. The reader class should satisfy the following.
+
+* It must have `prepare` and `fill` methods. The `prepare` method gets the reader ready before file processing, perhaps by getting the `get_valid_handle` function from the `gallery.Event`. The `fill` method does everything necessary to fill the value rows with data from the `gallery.Event`. 
+* It should have `values` (the accumulated data from the files) and `colnames` (names of the columns) methods to return those data. If you do not provide those methods, then you will need to use `readGallery::galleryReader_df` with the `values` and `colnames` arguments and provide methods to extract that data. 
+
+You can use a base class, `galleryReader.GalleryReaderBase` to do some of the boilerplate things for you. 
+
+You can either write the python class in a file and import it with `readGallery::createReaderClass_from_file` or write it in an *R* string and import it with `readGallery::createReaderClass_from_string`. Both of these functions return the main python environment. You then need to extract your class from the environment with the `$<className>` operation. For example,
+
+```{r eval=FALSE}
+createReaderClass_from_file('myReaderClass.py')$MyReader   # class MyReader  is in the python file
 ```
+
+There is one example Reader class in this package for `GhostDetectorArtRecord`. It uses the base class. Here is the base class for reference.
+
+```python
+class GalleryReaderBase:
+  """A base class for simple readers"""
+
+  def __init__(self, inputTag):
+    self.vals = []
+    self.inputTag = inputTag
+    self.getValidHandle = None   # Shouild be set in the prepare method
+    self.names = None # Needs to be set in derived class; self.names = [...]
+
+  def colnames(self):
+    return self.names
+
+  def values(self):
+    return self.vals
+
+  def prepare(self, ROOT, ev):
+    self.vals = []  # Protect against re-run
+    # Your code sets self.getValidHandle
+
+  def fill(self, ROOT, ev):
+    # Your code fills self.vals
+    return True
+```
+
+We can display the `GhostDetectorArtRecordReader` class with the `readr::read_file(...) %>% cat` pipeline.  
+
 ```{r}
-createReaderClass_from_file(system.file('python', 'sampleReaderClass.py',
-                                        package="readGallery"))$GhostDetectorArtRecordReader -> GHReader
+readr::read_file( system.file('python', 'ghostReader.py', package="readGallery") ) %>% cat
+```
+
+Let's load it into python. Note the use of `$<class name>`,
+```{r}
+createReaderClass_from_file(system.file('python', 'ghostReader.py',
+            package="readGallery"))$GhostDetectorArtRecordReader -> GHReader
 ```
 
 Make the reader objects
@@ -53,48 +142,76 @@ Make the reader objects
 ghCReader <- GHReader(gh_cyl_tag)
 ```
 
+## Process the files
+
+We are now ready to process the files! Let's just do one at first. 
 ```{r}
 getGalleryData(myOneFile, ghCReader)
 ```
 
 ```{r}
-ghcdf <- galleryReader_df(ghCReader)
+ghcdf <- galleryReader_df(ghCReader) %>% tbl_df
 ghcdf
 ```
-Let's try two readers
-
+Let's try two readers (we'll use the same Reader class, but initialize it with a different input tag).
 ```{r}
 ghNReader <- GHReader(gh_nwd_tag)
 ```
+
+Let's read in the data again
 ```{r}
 getGalleryData(myOneFile, c(ghCReader, ghNReader))
 ```
 
 ```{r}
-ghndf <- galleryReader_df(ghNReader)
+ghndf <- galleryReader_df(ghNReader) %>% tbl_df
 ghndf
 ```
 
-Let's try all the data!
+Let's try all the data! This will take longer. 
 ```{r}
 getGalleryData(myFiles, c(ghCReader, ghNReader) )
 ```
+
+And look at the data
 ```{r}
 ghcdf <- galleryReader_df(ghCReader)
-ghcdf
+ghndf <- galleryReader_df(ghNReader)
 ```
 
-```{r}
-ghndf <- galleryReader_df(ghNReader)
-ghndf
-```
-```{r}
-ghcdf %>% distinct(fileEntry)
-```
+How many rows did we get per file?
 ```{r}
 ghcdf %>% group_by(fileEntry) %>% tally()
 ```
 ```{r}
 ghndf %>% group_by(fileEntry) %>% tally()
 ```
+## Timing information
+
+The function `readGallery:getGalleryData` can return timing information in the form of a python object. For example,
+
+```{r}
+times <- getGalleryData(myOneFile, ghCReader)
+```
+
+```{r}
+times$allTime
+```
+Look at time it took to process events. 
+```{r}
+et <- times$eventTimes
+mean(et)
+```
+```{r}
+qplot(seq_along(et), et) + xlab('eventEntry') + ylab('Processing time (s)')
+```
+
+The slow ones seem to be in the beginning
+```{r}
+ets <- et[100:length(et)]
+qplot(seq_along(ets), ets) + xlab('eventEntry') + ylab('Processing time (s)')
+```
+
+
+
 

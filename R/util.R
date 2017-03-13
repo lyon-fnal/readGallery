@@ -21,3 +21,9 @@ galleryPyConfig <- function() {
   main <- reticulate::py_run_string("import sys ; syspath = sys.path")
   cat(main$syspath)
 }
+
+#' Return the ROOT python module
+#' @export
+getROOT <- function() {
+  pkg.env$readGalleryPy$getROOT()
+}

@@ -29,10 +29,13 @@ def createInputTag(tag):
   """Given an input tag string (like artg4:GhostNearWorldDetector), return a real art::InputTag object"""
   return ROOT.art.InputTag(tag)
 
+def getROOT():
+  return ROOT
+
 class GalleryTimer:
   """A little class to collect timings from a Gallery read run. Used internally"""
   def __init__(self):
-    self._allStart = time.clock()
+    self._allStart = time.time()
     self._totalReadStart = None
     self._eventStart = None
     self.allTime = None
@@ -40,16 +43,16 @@ class GalleryTimer:
     self.eventTimes = []
 
   def startTotalRead(self):
-    self._totalReadStart = time.clock()
+    self._totalReadStart = time.time()
 
   def startEvent(self):
-    self._eventStart = time.clock()
+    self._eventStart = time.time()
 
   def doneEvent(self):
-    self.eventTimes.append(time.clock() - self._eventStart)
+    self.eventTimes.append(time.time() - self._eventStart)
 
   def done(self):
-    t = time.clock()
+    t = time.time()
     self.totalReadTime = t - self._totalReadStart
     self.allTime = t - self._allStart
 
@@ -100,3 +103,29 @@ def getGalleryData(fileVector, readerObject):
 
   gt.done()
   return gt
+
+
+class GalleryReaderBase:
+  """A base class for simple readers"""
+
+  def __init__(self, inputTag):
+    self.vals = []
+    self.inputTag = inputTag
+    self.getValidHandle = None   # Shouild be set in the prepare method
+    self.names = None # Needs to be set in derived class; self.names = [...]
+
+  def colnames(self):
+    return self.names
+
+  def values(self):
+    return self.vals
+
+  def prepare(self, ROOT, ev):
+    self.vals = []  # Protect against re-run
+    # Your code sets self.getValidHandle
+
+  def fill(self, ROOT, ev):
+    # Your code fills self.vals
+    return True
+
+

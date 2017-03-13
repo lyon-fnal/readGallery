@@ -15,5 +15,5 @@ getGalleryData(theFile, reader)
 Timing information
 }
 \description{
-Read data from Gallery
+See the vignette for more information
 }
