@@ -124,17 +124,21 @@ class GalleryReaderBase:
     # Your code fills self.vals
     return True
 ```
+We can make a skeleton class and fill in the details. Most of the time the skeleton will work fine, but you will want to make changes. Perhaps remove some columns. Add constraints. Other things. Remember that the philosophy is to load only the data you **need**. 
+```{r}
+readerClassSkel('gm2truth::GhostDetectorArtRecord', writeFile = 'ghostDetectorRecord.py')
+```
+
 
 We can display the `GhostDetectorArtRecordReader` class with the `readr::read_file(...) %>% cat` pipeline.  
 
 ```{r}
-readr::read_file( system.file('python', 'ghostReader.py', package="readGallery") ) %>% cat
+readr::read_file( 'ghostDetectorRecord.py') %>% cat
 ```
 
 Let's load it into python. Note the use of `$<class name>`,
 ```{r}
-createReaderClass_from_file(system.file('python', 'ghostReader.py',
-            package="readGallery"))$GhostDetectorArtRecordReader -> GHReader
+createReaderClass_from_file('ghostDetectorRecord.py')$GhostDetectorArtRecordReader -> GHReader
 ```
 
 Make the reader objects

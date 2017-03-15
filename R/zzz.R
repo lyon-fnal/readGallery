@@ -15,6 +15,7 @@ pkg.env <- new.env(parent = emptyenv())
 
   # Now import the package
   pkg.env$readGalleryPy <- reticulate::import("readGallery")
+  pkg.env$galleryReaderSkel <- reticulate::import("galleryReaderSkel")
 }
 
 
